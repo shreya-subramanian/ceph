@@ -379,7 +379,7 @@ int main(int argc, char **argv) {
         for (unsigned i = 0; i < seastar::smp::count; ++i) {
           per_shard_futures.push_back(seastar::smp::submit_to(
               i, seastar::coroutine::lambda(
-                     [&, &store_ref = *store]() -> seastar::future<> {
+                     [=, &store_ref = *store]() -> seastar::future<> {
                        ERROR("running example_io on reactor {}",
                              seastar::this_shard_id());
                        co_await pg_log_workload(store_ref, num_logs, log_length,
