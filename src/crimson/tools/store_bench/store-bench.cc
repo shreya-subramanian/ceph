@@ -192,11 +192,11 @@ seastar::future<> pg_log_workload(crimson::os::FuturizedStore &global_store,
       container_io.push_back(i);
     }
     co_await seastar::parallel_for_each(
-        container_io, ([&](int) -> seastar::future<> {
+        container_io, (seastar::coroutine::lambda([&](int) -> seastar::future<> {
           auto res = co_await add_remove_entry();
           all_io_res.push_back(std::move(res));
           co_return;
-        }));
+        })));
 
     int tot_ops_all_io = 0;
     int tot_latency_all_io = 0;
@@ -285,6 +285,8 @@ int main(int argc, char **argv) {
                     "so how many objects we create")
 
       ("log_length", po::value<int>(&log_length), "number of entries per log")
+      ("log_size", po::value<int>(&log_size), "size of each log entry")
+      
 
       ("num_concurrent_io", po::value<int>(&num_concurrent_io),
         "number of IOs happening simultaneously")
