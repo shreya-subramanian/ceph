@@ -226,12 +226,8 @@ int main(int argc, char **argv) {
   bool debug = false;
   std::string store_type;
   std::string store_path;
-  std::string io_pattern;
-  int num_logs = 0;
-  int log_length = 0;
-  int log_size = 0;
-  int num_concurrent_io = 0;
-  int duration = 0;
+  //std::string io_pattern;
+ 
 
   desc.add_options()("help,h", "show help message")(
       "store-type",
@@ -274,6 +270,11 @@ int main(int argc, char **argv) {
   app_cfg.name = "crimson-store-bench";
   app_cfg.auto_handle_sigint_sigterm = false;
   seastar::app_template app(std::move(app_cfg));
+  int num_logs = 0;
+  int log_length = 0;
+  int log_size = 0;
+  int num_concurrent_io = 0;
+  int duration = 0;
 
   std::vector<char *> av{argv[0]};
   std::transform(std::begin(unrecognized_options),
