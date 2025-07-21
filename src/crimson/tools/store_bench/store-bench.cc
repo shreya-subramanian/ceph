@@ -95,6 +95,7 @@ seastar::future<> pg_log_workload(crimson::os::FuturizedStore &global_store,
   };
 
   std::map<int, coll_t> collection_id;
+  std::map<int,boost::intrusive_ptr<crimson::os::FuturizedCollection>>coll_ref_map;
 
   /**
    * This method returns a future with pre filled logs
@@ -109,6 +110,7 @@ seastar::future<> pg_log_workload(crimson::os::FuturizedStore &global_store,
       auto coll_id = make_cid(i);
       collection_id[i] = coll_id;
       auto coll_ref = co_await local_store.create_new_collection(coll_id);
+      coll_ref_map[i]=coll_ref;
       std::map<std::string, bufferlist> data;
       for (int j = 0; j < log_length; ++j) {
         std::string key = std::to_string(j);
@@ -146,7 +148,7 @@ seastar::future<> pg_log_workload(crimson::os::FuturizedStore &global_store,
       int obj_num = std::rand() % num_logs;
       auto object = create_hobj(obj_num);
       auto coll_id = collection_id[obj_num];
-      auto coll_ref = co_await local_store.create_new_collection(coll_id);
+      auto coll_ref=coll_ref_map[obj_num];
 
       std::string key_to_write = std::to_string(last_key_per_log[obj_num]);
       last_key_per_log[obj_num] += 1;
@@ -380,7 +382,7 @@ int main(int argc, char **argv) {
         for (unsigned i = 0; i < seastar::smp::count; ++i) {
           auto named_lambda=[=, &store_ref = *store]() -> seastar::future<> {
           ERROR("running example_io on reactor {}",seastar::this_shard_id());
-          co_await pg_log_workload(store_ref, num_logs, log_length,log_size, num_concurrent_io,duration);
+          co_await pg_log_workload(store_ref, num_logs, num_concurrent_io, duration, log_size, log_length);
           co_return;
           };
           per_shard_futures.push_back(seastar::smp::submit_to(i,std::move(named_lambda)));  
