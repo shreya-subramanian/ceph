@@ -222,7 +222,7 @@ BtreeOMapManager::omap_rm_key(
   });
 
 }
-
+//nonsense comment because it wont let me stage this file 
 BtreeOMapManager::omap_rm_key_range_ret
 BtreeOMapManager::omap_rm_key_range(
   omap_root_t &omap_root,
