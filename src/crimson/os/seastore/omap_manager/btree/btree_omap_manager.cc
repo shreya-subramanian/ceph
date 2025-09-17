@@ -152,7 +152,9 @@ BtreeOMapManager::omap_set_keys(
   omap_root_t &omap_root,
   Transaction &t,
   std::map<std::string, ceph::bufferlist>&& keys)
-{
+  {
+  LOG_PREFIX(BtreeOMapManager::omap_set_keys); 
+  static int operation_count=0;
   return seastar::do_with(std::move(keys), [&, this](auto& keys) {
     return trans_intr::do_for_each(
       keys.begin(),
@@ -160,7 +162,20 @@ BtreeOMapManager::omap_set_keys(
       [&, this](auto &p) {
       return omap_set_key(omap_root, t, p.first, p.second);
     });
-  });
+  }).si_then([this,&t,FNAME](){
+    operation_count++;
+    if (operation_count%10==0){
+      std::cout << "avg time for finding root = " << insert_latencies.get_root.avg_latency() << std::endl;
+      if (insert_latencies.insert_split.avg_latency()>0){
+        std::cout << "avg time for insert with split = " << insert_latencies.insert_split.avg_latency() << std::endl;
+      }
+      else{
+        std::cout<<"No split occurred"<<std::endl;
+      } 
+      std::cout << "avg time for insert without split = " << insert_latencies.insert_no_split.avg_latency() << std::endl;
+    }
+    
+    });
 }
 
 BtreeOMapManager::omap_set_key_ret
