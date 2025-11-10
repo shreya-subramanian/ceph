@@ -146,6 +146,28 @@ BtreeOMapManager::omap_get_value(
         std::move(e));
   });
 }
+//data structure which has avg latency and record latency mathods 
+struct LatencyStats{
+  uint64_t count=0;
+  std::chrono::duration<double>tot_time=std::chrono::duration<double>(0.0);
+
+  void record_latency(std::chrono::duration<double> time){
+    tot_time+=time;
+    count+=1;
+  }
+  double avg_latency(){
+    return tot_time.count()/count;
+  }
+};
+//data structure having 3 things for getting root , handling insert split and no split 
+// each of the root, split and no split is of latency stats type 
+struct insertKeyStats{
+  LatencyStats get_root;
+  LatencyStats insert_no_split;
+  LatencyStats insert_split;
+};
+insertKeyStats insert_latencies;
+
 
 BtreeOMapManager::omap_set_keys_ret
 BtreeOMapManager::omap_set_keys(
@@ -186,21 +208,42 @@ BtreeOMapManager::omap_set_key(
   const ceph::bufferlist &value)
 {
   LOG_PREFIX(BtreeOMapManager::omap_set_key);
-  DEBUGT("{} -> {}", t, key, value);
+  DEBUGT("{} -> 0x{:x} value", t, key, value.length());
+  // #FIXME: heap buffer overflow during logging if value is long (e.g. 1020B)
+  // https://tracker.ceph.com/issues/71524
+  // DEBUGT("{} -> {}", t, key, value);
+  auto start_find_root=ceph::mono_clock::now();
   return get_omap_root(
     get_omap_context(t, omap_root),
     omap_root
-  ).si_then([this, &t, &key, &value, &omap_root](auto root) {
+  ).si_then([this, &t, &key, &value, &omap_root,start_find_root](auto root) {
+    auto end_find_root=ceph::mono_clock::now();
+    auto root_duration=std::chrono::duration<double>(end_find_root-start_find_root);
+    insert_latencies.get_root.record_latency(root_duration);
+    //start insert timer 
+    auto start_insert=ceph::mono_clock::now();
+    
     return root->insert(get_omap_context(
-      t, omap_root), key, value);
-  }).si_then([this, &omap_root, &t](auto mresult) -> omap_set_key_ret {
-    if (mresult.status == mutation_status_t::SUCCESS)
+      t, omap_root), key, value).si_then([this,&omap_root, &t,start_insert](auto mresult) -> omap_set_key_ret {
+    if (mresult.status == mutation_status_t::SUCCESS){
+      auto end_insert_no_split=ceph::mono_clock::now();
+      auto insert_no_split_duration=std::chrono::duration<double>(end_insert_no_split-start_insert);
+      insert_latencies.insert_no_split.record_latency(insert_no_split_duration);
       return seastar::now();
-    else if (mresult.status == mutation_status_t::WAS_SPLIT)
+    }
+      
+    else if (mresult.status == mutation_status_t::WAS_SPLIT){
+      auto end_insert_split=ceph::mono_clock::now();
+      auto insert_split_duration=std::chrono::duration<double>(end_insert_split-start_insert);
+      insert_latencies.insert_split.record_latency(insert_split_duration);
       return handle_root_split(
 	get_omap_context(t, omap_root), omap_root, mresult);
-    else
+    }
+    else{
       return seastar::now();
+    }
+     
+  });
   });
 }
 
@@ -277,6 +320,26 @@ BtreeOMapManager::omap_rm_key_range(
 	return omap_rm_key(omap_root, t, key);
       });
     });
+  });
+}
+
+BtreeOMapManager::omap_iterate_ret
+BtreeOMapManager::omap_iterate(
+  const omap_root_t &omap_root,
+  Transaction &t,
+  ObjectStore::omap_iter_seek_t &start_from,
+  omap_iterate_cb_t callback)
+{
+  LOG_PREFIX(BtreeOMapManager::omap_iterate);
+  DEBUGT("{}, {}", t, omap_root, start_from);
+  return get_omap_root(
+    get_omap_context(t, omap_root),
+    omap_root
+  ).si_then([this, &t, &start_from, callback, &omap_root](auto extent) {
+    return extent->iterate(
+      get_omap_context(t, omap_root),
+      start_from,
+      callback);
   });
 }
 
