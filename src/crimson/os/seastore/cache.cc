@@ -199,6 +199,14 @@ void Cache::register_metrics(store_index_t store_index)
         {sm::label_instance("shard_store_index", std::to_string(store_index))}
       ),
       sm::make_counter(
+        "cache_miss",
+        [this] {
+          return stats.access.load_absent;
+        },
+        sm::description("total number of cache misses"),
+        {sm::label_instance("shard_store_index", std::to_string(store_index))}
+      ),
+      sm::make_counter(
         "refresh_parent_total",
         cursor_stats.num_refresh_parent_total,
         sm::description("total number of refreshed cursors"),
