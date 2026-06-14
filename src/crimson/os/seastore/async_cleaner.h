@@ -1707,6 +1707,9 @@ private:
     uint64_t reclaimed_bytes = 0;
     uint64_t reclaimed_segment_bytes = 0;
 
+    //compaction timer counters 
+    uint64_t compaction_time_ms = 0;
+    uint64_t compaction_count = 0;
     seastar::metrics::histogram segment_util;
   } stats;
   seastar::metrics::metric_group metrics;

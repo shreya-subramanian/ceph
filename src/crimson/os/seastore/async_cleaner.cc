@@ -1074,6 +1074,13 @@ void SegmentCleaner::register_metrics()
     sm::make_counter("closed_ool_total_bytes", stats.closed_ool_total_bytes,
 		     sm::description("total bytes of closed ool segments"),
          {sm::label_instance("shard_store_index", std::to_string(store_index))}),
+    
+    sm::make_counter("compaction_time_ms", stats.compaction_time_ms,
+		     sm::description("total time spent in compaction in millisec"),
+         {sm::label_instance("shard_store_index", std::to_string(store_index))}),
+    sm::make_counter("compaction_count", stats.compaction_count,
+		     sm::description("number of times compaction ran"),
+         {sm::label_instance("shard_store_index", std::to_string(store_index))}),
 
     sm::make_gauge("available_ratio",
                    [this] { return segments.get_available_ratio(); },
@@ -1503,6 +1510,9 @@ SegmentCleaner::clean_space_ret SegmentCleaner::clean_space()
       ).safe_then([this, FNAME, pavail_ratio, start, &reclaimed, &runs] {
         stats.reclaiming_bytes += reclaimed;
         auto d = seastar::lowres_system_clock::now() - start;
+        //compaction timer and number code 
+        stats.compaction_time_ms+=std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
+        stats.compaction_count++;
         DEBUG("duration: {}, pavail_ratio before: {}, repeats: {}",
               d, pavail_ratio, runs);
         if (reclaim_state->is_complete()) {
