@@ -335,8 +335,12 @@ RecordSubmitter::submit(
     write_result_t result{
         journal_allocator.get_written_to(),
         to_write.length()};
+    auto write_start = seastar::lowres_system_clock::now();
     auto write_fut = journal_allocator.write(std::move(to_write)
-    ).safe_then([mdlength=sizes.get_mdlength(), result] {
+    ).safe_then([this, mdlength=sizes.get_mdlength(), result, write_start] {
+      stats.journal_write_latency_ns +=
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+          seastar::lowres_system_clock::now() - write_start).count();
       return record_locator_t{
         result.start_seq.offset.add_offset(mdlength),
         result
@@ -449,6 +453,12 @@ RecordSubmitter::open(store_index_t store_index, bool is_mkfs)
           "record_group_data_bytes",
           stats.data_bytes,
           sm::description("bytes of data when write record groups"),
+          label_instances
+        ),
+        sm::make_counter(
+          "write_latency_ns",
+          stats.journal_write_latency_ns,
+          sm::description("total nanoseconds spent in journal write I/O"),
           label_instances
         ),
       }
@@ -574,8 +584,12 @@ void RecordSubmitter::flush_current_batch()
         write_result_t{write_base, write_len},
         get_committed_to(), num_outstanding_io);
   assert(write_base == journal_allocator.get_written_to());
+  auto write_start = seastar::lowres_system_clock::now();
   std::ignore = journal_allocator.write(std::move(encode_ret.bl)
-  ).safe_then([this, p_batch, FNAME, num, sizes, write_len] {
+  ).safe_then([this, p_batch, FNAME, num, sizes, write_len, write_start] {
+    stats.journal_write_latency_ns +=
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+        seastar::lowres_system_clock::now() - write_start).count();
     TRACE("{} {} records, {}, write done",
           get_name(), num, sizes);
     finish_submit_batch(p_batch, write_len);

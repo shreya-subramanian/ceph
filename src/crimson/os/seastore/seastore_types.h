@@ -3250,6 +3250,7 @@ struct writer_stats_t {
   uint64_t record_group_padding_bytes = 0;
   uint64_t record_group_metadata_bytes = 0;
   uint64_t data_bytes = 0;
+  uint64_t journal_write_latency_ns = 0;
   counter_by_src_t<trans_writer_stats_t> stats_by_src;
 
   bool is_empty() const {
@@ -3268,6 +3269,7 @@ struct writer_stats_t {
     record_group_padding_bytes += o.record_group_padding_bytes;
     record_group_metadata_bytes += o.record_group_metadata_bytes;
     data_bytes += o.data_bytes;
+    journal_write_latency_ns += o.journal_write_latency_ns;
     add_srcs(stats_by_src, o.stats_by_src);
   }
 
@@ -3277,6 +3279,7 @@ struct writer_stats_t {
     record_group_padding_bytes -= o.record_group_padding_bytes;
     record_group_metadata_bytes -= o.record_group_metadata_bytes;
     data_bytes -= o.data_bytes;
+    journal_write_latency_ns -= o.journal_write_latency_ns;
     minus_srcs(stats_by_src, o.stats_by_src);
   }
 };
