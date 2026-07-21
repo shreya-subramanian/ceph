@@ -302,7 +302,7 @@ def plot_latency_distribution(raw_latency_prefix, output_path):
             text=f"p{p}: {v_ms:.3f} ms", font=dict(size=11),
         )
 
-    fig.update_xaxes(title_text="latency (ms)", dtick=1, tick0=0)
+    fig.update_xaxes(title_text="latency (ms)", type="log")
     fig.update_yaxes(title_text="percentile", range=[0, 100])
     fig.update_layout(
         title=f"Latency distribution, all shards pooled ({n} samples)",
