@@ -36,7 +36,10 @@ Cache::Cache(
   : epm(epm),
     pinboard(create_extent_pinboard(
       crimson::common::get_conf<Option::size_t>(
-       "seastore_cachepin_size_pershard")))
+       "seastore_cachepin_size_pershard"))),
+    measure_lba_conflict_mergeability(
+      crimson::common::get_conf<bool>(
+       "seastore_measure_lba_conflict_mergeability"))
 {
   register_metrics(store_index);
   segment_providers_by_device_id.resize(DEVICE_ID_MAX, nullptr);
@@ -1195,7 +1198,7 @@ void Cache::invalidate_extent(
       }
       assert(!i.t->is_weak());
       account_conflict(t.get_src(), i.t->get_src());
-      if (committer_node_own_copy) {
+      if (committer_node_own_copy && measure_lba_conflict_mergeability) {
         count_lba_conflict_mergeability(*committer_node_own_copy, *i.t);
       }
       mark_transaction_conflicted(*i.t, extent);
